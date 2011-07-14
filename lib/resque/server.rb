@@ -2,6 +2,7 @@ require 'sinatra/base'
 require 'erb'
 require 'resque'
 require 'resque/version'
+require 'time'
 
 module Resque
   class Server < Sinatra::Base
@@ -124,10 +125,26 @@ module Resque
         erb :error, {:layout => false}, :error => "Can't connect to Redis! (#{Resque.redis_id})"
       end
     end
+    
+    def show_for_polling(page)
+      content_type "text/html"
+      @polling = true
+      show(page.to_sym, false).gsub(/\s{1,}/, ' ')
+    end
 
     # to make things easier on ourselves
     get "/?" do
       redirect url_path(:overview)
+    end
+    
+    %w( overview workers ).each do |page|
+      get "/#{page}.poll" do
+        show_for_polling(page)
+      end
+      
+      get "/#{page}/:id.poll" do
+        show_for_polling(page)
+      end
     end
 
     %w( overview queues working workers key ).each do |page|
@@ -143,14 +160,6 @@ module Resque
     post "/queues/:id/remove" do
       Resque.remove_queue(params[:id])
       redirect u('queues')
-    end
-
-    %w( overview workers ).each do |page|
-      get "/#{page}.poll" do
-        content_type "text/html"
-        @polling = true
-        show(page.to_sym, false).gsub(/\s{1,}/, ' ')
-      end
     end
 
     get "/failed" do
